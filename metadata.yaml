@@ -1,0 +1,144 @@
+title: Natural Earth Experiment
+description: A datasette experiment in Geospatial Analysis
+databases:
+  natural-earth:
+    title: Natural Earth DB
+    # canned queries live in metadata.yaml for datasette 0.x 
+    queries:
+      urban-areas:
+        title: Urban Areas
+        description: Get largest urban areas
+        sql: |
+          SELECT
+            area_sqkm, geometry
+          FROM
+            ne_50m_urban_areas
+          ORDER by area_sqkm desc
+      borders:
+        title: Country Boders
+        description: Country bordes at 50m detail
+        sql: |
+          SELECT
+            ogc_fid, 
+            name_de,
+            geometry
+          FROM
+            ne_50m_admin_0_countries
+      color-countries:
+        title: Colors of Africa
+        description: | 
+          Color the countries of the african continent using a palette of 9 colors from colorbrewer.
+          See: https://en.wikipedia.org/wiki/ColorBrewer
+        sql: |
+          SELECT
+            ogc_fid, 
+            name_de,
+            name,
+            continent,
+            geometry,
+            colorbrewer('Paired', 9, MAPCOLOR9 - 1) as fill
+          FROM
+            ne_50m_admin_0_countries
+          WHERE
+            continent = "Africa"
+      blue-countries:
+        title: Seven Shades of Blue
+        description: |
+          Colors of the world using 7 shades of blue
+        sql: |
+          SELECT
+            ogc_fid, 
+            name_de,
+            geometry,
+            colorbrewer('Blues', 7, MAPCOLOR7 - 1) as fill
+          FROM
+            ne_50m_admin_0_countries
+      coast-lines:
+        title: Coast Lines
+        description: Where water meets earth
+        sql: |
+          SELECT
+            ogc_fid, 
+            geometry
+          FROM
+            ne_50m_coastline
+      rivers:
+        title: All big Rivers
+        description: All rivers, with their German names
+        sql: |
+          SELECT
+            ogc_fid, 
+            name_de, 
+            geometry
+          FROM
+            ne_10m_rivers_lake_centerlines
+      eu-rivers:
+        title: Rivers in Europe
+        description: European rivers, with their German names
+        sql: |
+          SELECT
+            ogc_fid, 
+            name_de, 
+            geometry
+          FROM
+            ne_10m_rivers_europe
+      german-rails:
+        title: German Railroad Network (slow)
+        description: All Railroads within Germany
+        sql: |
+          SELECT
+            r.ogc_fid,
+            r.GEOMETRY as geometry
+          FROM
+            ne_10m_railroads r
+          JOIN
+            ne_10m_admin_0_countries c
+          ON
+            ST_intersects(r.GEOMETRY, c.GEOMETRY)
+          WHERE
+            r.continent = 'Europe'
+            AND c.ADMIN = 'Germany'
+          ORDER BY
+            r.ogc_fid;
+      global-rails:
+        title: Global Railroad Network Search (slow)
+        description: Specify the country below
+        sql: |
+          SELECT
+            r.ogc_fid,
+            r.GEOMETRY as geometry
+          FROM
+            ne_10m_railroads r
+          JOIN
+            ne_10m_admin_0_countries c
+          ON
+            ST_intersects(r.GEOMETRY, c.GEOMETRY)
+          WHERE
+            c.ADMIN = :country
+          ORDER BY
+            r.ogc_fid;
+
+      global-rails-fast:
+        title: Global Railroad Network Indexed Search (fast)
+        description: Using Indexed Search to speed up the search
+        sql: |
+          SELECT
+            r.ogc_fid,
+            r.geometry as geometry
+          FROM
+            ne_10m_railroads r
+          JOIN
+            ne_10m_admin_0_countries c
+          ON
+            ST_intersects(r.geometry, c.geometry)
+          WHERE
+            c.ADMIN = :country
+            AND r.ROWID IN (
+              SELECT ROWID
+              FROM SpatialIndex
+              WHERE 
+                f_table_name = 'ne_10m_railroads'
+                AND search_frame = c.geometry
+            )
+          ORDER BY
+            r.ogc_fid;
